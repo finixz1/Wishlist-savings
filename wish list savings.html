@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tabungan Wishlist Pro v9</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+    <style>
+        :root {
+            --bg-dark: #000000;
+            --card-dark: #111111;
+            --text-main: #ffffff;
+            --text-dim: #888888;
+            --accent-green: #2ecc71;
+            --accent-red: #e74c3c;
+            --folder-bg: #ffffff;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-dark); color: var(--text-main);
+            margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center;
+            min-height: 100vh;
+        }
+
+        .header { width: 100%; max-width: 400px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+        .header h2 { font-weight: 800; letter-spacing: -0.5px; }
+
+        .folder-container { width: 100%; max-width: 400px; }
+        .folder-item {
+            background: var(--folder-bg); color: #000; padding: 20px; border-radius: 20px;
+            margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;
+            font-weight: 900; cursor: pointer; transition: transform 0.2s;
+            box-shadow: 0 4px 15px rgba(255,255,255,0.05);
+        }
+        .folder-item:active { transform: scale(0.97); }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-dark); z-index: 100; overflow-y: auto; animation: slideUp 0.3s ease-out; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        
+        .content-box { padding: 25px; max-width: 420px; margin: auto; }
+
+        .img-display { 
+            width: 100%; aspect-ratio: 1 / 1; background: #1a1a1a; border-radius: 30px; 
+            display: flex; align-items: center; justify-content: center; color: #444; 
+            margin-bottom: 20px; overflow: hidden; border: 1px solid #222;
+        }
+        .img-display img { width: 100%; height: 100%; object-fit: cover; }
+
+        #custom-confirm, #crop-modal, #custom-prompt {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 200; align-items: center; justify-content: center;
+            backdrop-filter: blur(5px);
+        }
+        .confirm-card { background: #161616; padding: 30px; border-radius: 25px; text-align: center; width: 90%; max-width: 360px; border: 1px solid #333; }
+
+        label { display: block; margin: 15px 0 8px; font-weight: bold; font-size: 12px; color: var(--text-dim); letter-spacing: 1px; }
+        input, select { width: 100%; padding: 16px; border-radius: 15px; border: 1px solid #333; background: #0a0a0a; color: #fff; font-size: 16px; margin-bottom: 10px; outline: none; }
+        input:focus { border-color: var(--accent-green); }
+        
+        .circle-progress { width: 110px; height: 110px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 800; border: 10px solid #1a1a1a; transition: 0.5s; }
+        .stat-card { background: #fff; color: #000; border-radius: 20px; padding: 20px; display: flex; margin-top: 25px; }
+        
+        .history-box { margin-top: 15px; background: #050505; padding: 15px; border-radius: 20px; max-height: 300px; overflow-y: auto; border: 1px solid #111; }
+        .hist-item { font-size: 13px; padding: 12px 0; border-bottom: 1px solid #111; display: flex; align-items: center; gap: 12px; }
+        
+        .info-panel { margin-top: 25px; padding: 15px; background: #0a0a0a; border-radius: 15px; font-size: 14px; border: 1px solid #1a1a1a; }
+        .info-line { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .info-line span:last-child { font-weight: bold; }
+
+        .btn-action { flex: 1; padding: 18px; border: none; border-radius: 15px; font-weight: 800; cursor: pointer; font-size: 14px; text-transform: uppercase; }
+        .fab { position: fixed; bottom: 30px; right: 30px; background: #fff; color: #000; width: 65px; height: 65px; border-radius: 22px; display: flex; align-items: center; justify-content: center; font-size: 26px; cursor: pointer; z-index: 90; box-shadow: 0 10px 30px rgba(255,255,255,0.2); }
+
+        .text-green { color: var(--accent-green) !important; }
+        .text-red { color: var(--accent-red) !important; }
+        .bg-red { background: var(--accent-red) !important; color: white; }
+        .bg-green { background: var(--accent-green) !important; color: white; }
+        .hist-controls { display: flex; justify-content: flex-end; gap: 20px; margin-top: 20px; align-items: center; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h2>Wishlist Plan</h2>
+        <div style="display:flex; align-items:center; gap:18px;">
+            <i class="fas fa-list-check" id="icon-main-select" style="font-size: 20px; cursor: pointer; color: var(--text-dim);" onclick="toggleMainSelectMode()"></i>
+            <i class="fas fa-trash-can text-red" id="icon-main-trash" style="font-size: 22px; cursor: pointer;" onclick="handleMainTrash()"></i>
+        </div>
+    </div>
+
+    <div id="main-list" class="folder-container"></div>
+    <div id="main-bulk-delete-container" class="folder-container" style="display:none; margin-top:-5px;">
+        <button class="btn-action bg-red" style="width:100%;" onclick="doBulkDeleteMain()">HAPUS TERPILIH (<span id="main-selected-count">0</span>)</button>
+    </div>
+    <div class="fab" onclick="openNewForm()"><i class="fas fa-plus"></i></div>
+
+    <div id="custom-confirm">
+        <div class="confirm-card">
+            <p id="confirm-msg">Konfirmasi Tindakan?</p>
+            <div style="display:flex; gap:12px; margin-top:25px;">
+                <button class="btn-action bg-red" id="btn-ok">HAPUS</button>
+                <button class="btn-action" style="background:#333; color:#fff;" onclick="hideConfirm()">BATAL</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="custom-prompt">
+        <div class="confirm-card">
+            <p id="prompt-msg" style="font-weight: 900; margin-bottom: 20px;"></p>
+            <input type="text" id="prompt-input" oninput="formatInput(this)" placeholder="Nominal" style="text-align: center; font-size: 20px;">
+            <input type="text" id="prompt-desc" placeholder="Keterangan (Opsional)">
+            <div style="display:flex; gap:12px; margin-top:15px;">
+                <button class="btn-action bg-green" id="prompt-save">SIMPAN</button>
+                <button class="btn-action" style="background:#333; color:#fff;" onclick="closePrompt()">BATAL</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-detail" class="modal">
+        <div class="content-box">
+            <div onclick="closeDetail()" style="cursor:pointer; margin-bottom:25px; color: var(--text-dim); font-weight: bold;"><i class="fas fa-arrow-left"></i> KEMBALI</div>
+            <div class="img-display" id="det-img-box"></div>
+            
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <div style="flex:1">
+                    <h1 id="det-nama" style="margin:0; font-size: 28px; letter-spacing: -1px;">Item</h1>
+                    <h2 id="det-target" style="margin:5px 0; color: var(--accent-green);">Rp 0</h2>
+                    <div id="det-metode-label" style="font-size: 14px; color: var(--text-dim); font-weight: 600;">Rp 0 / Harian</div>
+                </div>
+                <div class="circle-progress" id="det-circle">0%</div>
+            </div>
+
+            <div class="stat-card">
+                <div style="flex:1">Terkumpul<br><span class="text-green" id="det-kumpul" style="font-weight:900; font-size:18px;">Rp 0</span></div>
+                <div style="flex:1; border-left:1px solid #eee; padding-left:20px;"><span id="det-label">Kurang</span><br><span id="det-kurang" style="font-weight:900; font-size:18px;">Rp 0</span></div>
+            </div>
+
+            <div class="info-panel">
+                <div class="info-line"><span>Dibuat:</span> <span id="det-tgl-dibuat">-</span></div>
+                <div class="info-line"><span>Memulai Menabung:</span> <span id="det-tgl-mulai">-</span></div>
+                <div class="info-line" style="margin-top:5px;"><span>Selesai Menabung:</span> <span id="det-tgl-selesai">-</span></div>
+                <div class="info-line" style="margin-top:10px; border-top:1px solid #222; padding-top:10px;">
+                    <span>Estimasi Waktu</span> <span id="det-estimasi" class="text-green">-</span>
+                </div>
+            </div>
+
+            <div style="display:flex; gap:12px; margin-top:25px;">
+                <button class="btn-action bg-green" onclick="openTransaksi('tambah')"><i class="fas fa-plus-circle"></i> TABUNG</button>
+                <button class="btn-action" style="background:#1a1a1a; color:var(--accent-red); border:1px solid var(--accent-red)" onclick="openTransaksi('kurang')">TARIK</button>
+            </div>
+            
+            <div class="hist-controls">
+                <span id="bulk-delete-container" style="display:none; flex:1;">
+                    <button onclick="doBulkDelete()" class="bg-red" style="border:none; padding:10px 18px; border-radius:12px; font-size:12px; font-weight:bold;">HAPUS PILIHAN</button>
+                </span>
+                <span id="edit-action-container" style="display:none; flex:1; gap:10px;">
+                    <button onclick="cancelEditSelection()" style="border:none; padding:10px 18px; border-radius:12px; font-size:12px; font-weight:bold; background:#333; color:#fff;">BATAL</button>
+                    <button onclick="confirmEditSelection()" class="bg-green" style="border:none; padding:10px 18px; border-radius:12px; font-size:12px; font-weight:bold;">UBAH</button>
+                </span>
+                <i class="fas fa-edit text-green" style="font-size: 20px;" onclick="toggleEditMode()"></i>
+                <i class="fas fa-tasks text-dim" style="font-size: 20px;" onclick="toggleDeleteMode()"></i>
+            </div>
+            <div id="det-history" class="history-box"></div>
+        </div>
+    </div>
+
+    <div id="modal-form" class="modal">
+        <div class="content-box">
+            <div onclick="toggleModal('modal-form', false)" style="cursor:pointer; margin-bottom:25px; font-weight: bold;"><i class="fas fa-times"></i> BATALKAN</div>
+            <label>VISUALISASI BARANG</label>
+            <div class="img-display" id="preview-new" onclick="document.getElementById('in-file').click()"><i class="fas fa-camera fa-2x"></i></div>
+            <input type="file" id="in-file" accept="image/*" onchange="startCropping(this)" style="display:none;">
+            
+            <label>NAMA WISHLIST</label><input type="text" id="in-nama" placeholder="Contoh: iPhone 15">
+            <label>TARGET HARGA</label><input type="text" id="in-target" oninput="formatInput(this)" placeholder="Rp 0">
+            
+            <div style="display:flex; gap:10px;">
+                <div style="flex:1">
+                    <label>METODE</label>
+                    <select id="in-metode">
+                        <option value="Harian">Harian</option>
+                        <option value="Mingguan">Mingguan</option>
+                        <option value="Bulanan">Bulanan</option>
+                    </select>
+                </div>
+                <div style="flex:1">
+                    <label>NOMINAL RUTIN</label>
+                    <input type="text" id="in-nominal" oninput="formatInput(this)" placeholder="Rp 0">
+                </div>
+            </div>
+            <button class="btn-action bg-green" style="width:100%; margin-top:30px; font-size: 16px;" onclick="saveNew()">SIMPAN DATA</button>
+        </div>
+    </div>
+
+    <div id="crop-modal">
+        <div class="confirm-card" style="max-width: 400px;">
+            <div style="max-height: 350px; overflow: hidden; margin-bottom: 20px; border-radius: 15px;"><img id="image-to-crop" src="" style="max-width: 100%;"></div>
+            <div style="display:flex; gap:12px;"><button class="btn-action bg-green" onclick="cropImage()">POTONG</button><button class="btn-action bg-red" onclick="cancelCrop()">BATAL</button></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <script>
+        let db = JSON.parse(localStorage.getItem('wish_pro_v9')) || [];
+        let activeId = null, cropper = null, croppedImgBase64 = "";
+        let isEditMode = false, isDeleteMode = false, editSelected = null;
+        let isMainSelectMode = false, mainSelected = new Set();
+
+        const fNum = n => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        const pNum = s => parseInt(s.toString().replace(/\./g, '')) || 0;
+        const formatInput = el => { let v = el.value.replace(/\D/g, ""); el.value = v ? fNum(v) : ""; };
+        const save = () => localStorage.setItem('wish_pro_v9', JSON.stringify(db));
+        const toggleModal = (id, s) => document.getElementById(id).style.display = s ? 'block' : 'none';
+
+        function saveNew() {
+            const n = document.getElementById('in-nama').value, t = pNum(document.getElementById('in-target').value);
+            const nm = pNum(document.getElementById('in-nominal').value), m = document.getElementById('in-metode').value;
+            if(!n || t <= 0) return alert("Lengkapi data!");
+
+            const d = new Date(), opt = { day:'numeric', month:'long', year:'numeric' };
+            db.push({ id: Date.now(), nama: n, target: t, nominal: nm, metode: m, saldo: 0, history: [], foto: croppedImgBase64, tglDibuat: d.toLocaleDateString('id-ID', opt) });
+            save(); render(); toggleModal('modal-form', false);
+        }
+
+        function updateUI() {
+            const item = db.find(x => x.id === activeId);
+            if(!item) return;
+
+            document.getElementById('det-nama').innerText = item.nama;
+            document.getElementById('det-target').innerText = "Rp " + fNum(item.target);
+            document.getElementById('det-metode-label').innerText = `Rencana: Rp ${fNum(item.nominal)} / ${item.metode}`;
+            document.getElementById('det-kumpul').innerText = "Rp " + fNum(item.saldo);
+            document.getElementById('det-img-box').innerHTML = item.foto ? `<img src="${item.foto}">` : '<i class="fas fa-image fa-3x"></i>';
+            document.getElementById('det-tgl-dibuat').innerText = item.tglDibuat;
+            
+            // Memulai menabung: "-" jika belum pernah menabung, atau tanggal transaksi pertama jika sudah
+            document.getElementById('det-tgl-mulai').innerText = item.history.length > 0 ? item.history[0].tglFull : "-";
+
+            const sisa = item.target - item.saldo;
+            const l = document.getElementById('det-label'), a = document.getElementById('det-kurang'), e = document.getElementById('det-estimasi');
+            const tglSelesaiEl = document.getElementById('det-tgl-selesai');
+
+            if(sisa <= 0) {
+                l.innerText = "Kelebihan"; a.innerText = "Rp " + fNum(Math.abs(sisa));
+                l.className = a.className = "text-green"; 
+                e.innerText = "TARGET SELESAI!";
+                
+                // Jika sudah selesai, tanggal selesai diambil dari tanggal transaksi terakhir (atau saat saldo mencapai target)
+                tglSelesaiEl.innerText = item.history.length > 0 ? item.history[item.history.length - 1].tglFull : "-";
+            } else {
+                l.innerText = "Kekurangan"; a.innerText = "Rp " + fNum(sisa);
+                l.className = a.className = "text-red";
+                const sesi = Math.ceil(sisa / item.nominal);
+                const unit = item.metode === "Harian" ? "Hari" : (item.metode === "Mingguan" ? "Minggu" : "Bulan");
+                e.innerText = `${sesi} ${unit} Lagi`;
+                
+                // Jika belum selesai, tampilkan "-" pada selesai menabung
+                tglSelesaiEl.innerText = "-";
+            }
+
+            const p = Math.min(Math.round((item.saldo / item.target) * 100), 100) || 0;
+            const c = document.getElementById('det-circle'); 
+            c.innerText = p + "%"; c.style.borderColor = `hsl(${p * 1.2}, 80%, 45%)`;
+            renderHistory(item);
+        }
+
+        function openTransaksi(tipe, hId = null) {
+            const item = db.find(x => x.id === activeId);
+            const targetH = hId ? item.history.find(h => h.id === hId) : null;
+            document.getElementById('prompt-msg').innerText = targetH ? "UBAH RIWAYAT" : (tipe === 'tambah' ? "MENABUNG" : "PENARIKAN");
+            document.getElementById('prompt-input').value = targetH ? fNum(targetH.amt) : fNum(item.nominal);
+            document.getElementById('prompt-desc').value = targetH ? targetH.ket : "";
+            document.getElementById('custom-prompt').style.display = 'flex';
+
+            document.getElementById('prompt-save').onclick = () => {
+                const amt = pNum(document.getElementById('prompt-input').value);
+                if(amt <= 0) return;
+                const d = new Date();
+                if(targetH) { targetH.amt = amt; targetH.ket = document.getElementById('prompt-desc').value || targetH.ket; }
+                else {
+                    item.history.push({ id: Date.now(), tgl: d.toLocaleDateString('id-ID', {day:'numeric', month:'short'}), tglFull: d.toLocaleDateString('id-ID', {day:'numeric', month:'long', year:'numeric'}), tipe: (tipe === 'tambah' ? '+' : '-'), amt, ket: document.getElementById('prompt-desc').value || (tipe === 'tambah' ? "Tabungan" : "Kebutuhan") });
+                }
+                item.saldo = item.history.reduce((a, h) => h.tipe === '+' ? a + h.amt : a - h.amt, 0);
+                save(); updateUI(); closePrompt(); resetModes();
+            };
+        }
+
+        function renderHistory(item) {
+            const box = document.getElementById('det-history');
+            box.innerHTML = [...item.history].reverse().map(h => `
+                <div class="hist-item" style="cursor:${isEditMode ? 'pointer' : 'default'};" onclick="${isEditMode ? `selectEditItem(${h.id})` : ''}">
+                    <input type="checkbox" class="cb-hist" data-id="${h.id}" style="display:${isDeleteMode ? 'block' : 'none'}; width:18px; height:18px;">
+                    <input type="checkbox" class="cb-edit" data-id="${h.id}" ${editSelected === h.id ? 'checked' : ''} style="display:${isEditMode ? 'block' : 'none'}; width:18px; height:18px; pointer-events:none;">
+                    <div style="flex:1">
+                        <div style="display:flex; justify-content:space-between">
+                            <span><b>${h.tgl}</b> - ${h.ket}</span>
+                            <span class="${h.tipe === '+' ? 'text-green' : 'text-red'}">${h.tipe} Rp ${fNum(h.amt)}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function startCropping(input) {
+            if (!input.files[0]) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('image-to-crop').src = e.target.result;
+                toggleModal('crop-modal', true);
+                if (cropper) cropper.destroy();
+                cropper = new Cropper(document.getElementById('image-to-crop'), { aspectRatio: 1, viewMode: 1 });
+            }; reader.readAsDataURL(input.files[0]);
+        }
+        function cropImage() {
+            croppedImgBase64 = cropper.getCroppedCanvas({ width: 500, height: 500 }).toDataURL('image/jpeg', 0.7);
+            document.getElementById('preview-new').innerHTML = `<img src="${croppedImgBase64}">`;
+            cancelCrop();
+        }
+        function cancelCrop() { toggleModal('crop-modal', false); if(cropper) cropper.destroy(); }
+        function hideConfirm() { toggleModal('custom-confirm', false); }
+        function closePrompt() { toggleModal('custom-prompt', false); }
+        function toggleEditMode() { isEditMode = !isEditMode; isDeleteMode = false; editSelected = null; document.getElementById('edit-action-container').style.display = 'none'; updateUI(); }
+        function toggleDeleteMode() { isDeleteMode = !isDeleteMode; isEditMode = false; editSelected = null; document.getElementById('edit-action-container').style.display = 'none'; document.getElementById('bulk-delete-container').style.display = isDeleteMode ? 'block' : 'none'; updateUI(); }
+        function resetModes() { isEditMode = isDeleteMode = false; editSelected = null; document.getElementById('bulk-delete-container').style.display = 'none'; document.getElementById('edit-action-container').style.display = 'none'; }
+        function selectEditItem(id) {
+            editSelected = (editSelected === id) ? null : id;
+            document.getElementById('edit-action-container').style.display = editSelected !== null ? 'flex' : 'none';
+            renderHistory(db.find(x => x.id === activeId));
+        }
+        function cancelEditSelection() {
+            editSelected = null;
+            document.getElementById('edit-action-container').style.display = 'none';
+            renderHistory(db.find(x => x.id === activeId));
+        }
+        function confirmEditSelection() {
+            if(editSelected === null) return;
+            openTransaksi(null, editSelected);
+        }
+        function openDetail(id) { activeId = id; resetModes(); updateUI(); toggleModal('modal-detail', true); }
+        function closeDetail() { toggleModal('modal-detail', false); }
+        function openNewForm() { document.getElementById('in-nama').value = ""; document.getElementById('preview-new').innerHTML = '<i class="fas fa-camera fa-2x"></i>'; croppedImgBase64 = ""; toggleModal('modal-form', true); }
+
+        function render() {
+            document.getElementById('main-list').innerHTML = db.map(i => `
+                <div class="folder-item" onclick="${isMainSelectMode ? `toggleFolderSelect(${i.id})` : `openDetail(${i.id})`}">
+                    <div style="display:flex; align-items:center; gap:14px;">
+                        ${isMainSelectMode ? `<input type="checkbox" ${mainSelected.has(i.id) ? 'checked' : ''} style="width:20px; height:20px; margin:0; pointer-events:none; accent-color:#000;">` : ''}
+                        <span>${i.nama.toUpperCase()}</span>
+                    </div>
+                    <i class="fas fa-chevron-right" style="opacity:0.3"></i>
+                </div>
+            `).join('');
+            updateSelectedCount();
+        }
+
+        function toggleMainSelectMode() {
+            isMainSelectMode = !isMainSelectMode;
+            mainSelected.clear();
+            document.getElementById('icon-main-select').style.color = isMainSelectMode ? 'var(--accent-green)' : 'var(--text-dim)';
+            render();
+        }
+
+        function toggleFolderSelect(id) {
+            if(mainSelected.has(id)) mainSelected.delete(id); else mainSelected.add(id);
+            render();
+        }
+
+        function updateSelectedCount() {
+            const c = mainSelected.size;
+            document.getElementById('main-selected-count').innerText = c;
+            document.getElementById('main-bulk-delete-container').style.display = (isMainSelectMode && c > 0) ? 'block' : 'none';
+        }
+
+        function handleMainTrash() {
+            if(!isMainSelectMode) { toggleMainSelectMode(); return; }
+            if(mainSelected.size === 0) { alert('Pilih minimal 1 folder untuk dihapus.'); return; }
+            doBulkDeleteMain();
+        }
+
+        function doBulkDeleteMain() {
+            if(mainSelected.size === 0) return;
+            document.getElementById('confirm-msg').innerText = `Hapus ${mainSelected.size} folder terpilih?`;
+            toggleModal('custom-confirm', true);
+            document.getElementById('btn-ok').onclick = () => {
+                db = db.filter(x => !mainSelected.has(x.id));
+                save();
+                isMainSelectMode = false;
+                mainSelected.clear();
+                document.getElementById('icon-main-select').style.color = 'var(--text-dim)';
+                render();
+                hideConfirm();
+            };
+        }
+
+        function askDelete(type, id = null) {
+            document.getElementById('confirm-msg').innerText = type === 'all' ? "Hapus semua folder wishlist?" : "Hapus folder ini?";
+            toggleModal('custom-confirm', true);
+            document.getElementById('btn-ok').onclick = () => {
+                if(type === 'all') db = []; else db = db.filter(x => x.id !== (id || activeId));
+                save(); render(); hideConfirm(); closeDetail();
+            };
+        }
+
+        function doBulkDelete() {
+            const checked = [...document.querySelectorAll('.cb-hist:checked')].map(cb => Number(cb.dataset.id));
+            if(checked.length === 0) return;
+            document.getElementById('confirm-msg').innerText = `Hapus ${checked.length} riwayat terpilih?`;
+            toggleModal('custom-confirm', true);
+            document.getElementById('btn-ok').onclick = () => {
+                const item = db.find(x => x.id === activeId);
+                item.history = item.history.filter(h => !checked.includes(h.id));
+                item.saldo = item.history.reduce((a, h) => h.tipe === '+' ? a + h.amt : a - h.amt, 0);
+                save(); resetModes(); updateUI(); hideConfirm();
+            };
+        }
+
+        render();
+    </script>
+</body>
+</html>
